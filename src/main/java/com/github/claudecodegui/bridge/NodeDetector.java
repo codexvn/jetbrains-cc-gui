@@ -7,6 +7,7 @@ import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -557,13 +558,7 @@ public class NodeDetector {
         return "node".equals(name) || "node.exe".equals(name);
     }
 
-    /**
-     * Checks whether the given path is a WSL (Unix-style) path on a Windows host.
-     * A WSL path starts with '/' and the host OS is Windows.
-     *
-     * @param path the path to check
-     * @return true if it looks like a WSL path on Windows
-     */
+    /** Returns true if {@code path} is a Linux-style absolute path on a Windows host (i.e. starts with '/'). */
     public static boolean isWslPath(String path) {
         return PlatformUtils.isWindows()
                 && path != null
@@ -574,25 +569,21 @@ public class NodeDetector {
     /** Cached result of {@link #resolveWslHomeUncPath()} — populated on first call. */
     private static volatile String cachedWslHomeUncPath = null;
 
-    /**
-     * Converts a WSL absolute path (e.g. {@code /home/gazoon007/file.js}) to its Windows UNC form
-     * so the Windows JVM can read WSL filesystem files. Returns {@code null} on non-Windows,
-     * when WSL is unavailable, or when the input is not an absolute Linux path.
-     */
+    /** Converts a Linux absolute path to its Windows UNC form (e.g. {@code /home/x} → {@code \\wsl.localhost\Ubuntu\home\x}). */
     public static String convertWslPathToWindowsUnc(String wslPath) {
-        if (!PlatformUtils.isWindows() || wslPath == null || wslPath.isEmpty()) {
+        if (!PlatformUtils.isWindows() || wslPath == null || wslPath.isEmpty() || wslPath.charAt(0) != '/') {
             return null;
         }
-        if (wslPath.charAt(0) != '/') {
+        String uncHome = resolveWslHomeUncPath();
+        if (uncHome == null) {
             return null;
         }
-        String distroRoot = resolveWslDistroRootUnc();
-        if (distroRoot == null) {
+        // Split "\\wsl.localhost\Ubuntu\..." to extract \\host\distro\ prefix.
+        String[] parts = uncHome.split("\\\\");
+        if (parts.length < 4 || parts[2].isEmpty() || parts[3].isEmpty()) {
             return null;
         }
-        // distroRoot ends with a single trailing backslash; the wslPath starts with '/'.
-        // Replace '/' with '\' on the WSL portion and append after the distro root,
-        // taking care not to double the separator.
+        String distroRoot = "\\\\" + parts[2] + "\\" + parts[3] + "\\";
         String windowsTail = wslPath.replace('/', '\\');
         if (windowsTail.startsWith("\\")) {
             windowsTail = windowsTail.substring(1);
@@ -600,36 +591,66 @@ public class NodeDetector {
         return distroRoot + windowsTail;
     }
 
-    /**
-     * Returns the {@code \\wsl.localhost\<distro>\} (or {@code \\wsl$\<distro>\})
-     * prefix for the running user's default WSL distro, including a trailing
-     * backslash. Derived once from {@link #resolveWslHomeUncPath()}.
-     */
-    private static String resolveWslDistroRootUnc() {
-        String uncHome = resolveWslHomeUncPath();
-        if (uncHome == null) {
+    /** Returns path in forward-slash form that JetBrains {@code LocalFileSystem#refreshAndFindFileByPath} can resolve on this OS. */
+    public static String toVfsPath(String path) {
+        if (path == null) {
             return null;
         }
-        // uncHome looks like \\wsl.localhost\Ubuntu\home\gazoon007 — split on
-        // backslashes; the empty leading elements come from the leading "\\".
-        String[] parts = uncHome.split("\\\\");
-        if (parts.length < 4 || parts[2].isEmpty() || parts[3].isEmpty()) {
-            return null;
+        if (PlatformUtils.isWindows()) {
+            String unc = convertWslPathToWindowsUnc(path);
+            if (unc != null) {
+                return unc.replace('\\', '/');
+            }
         }
-        return "\\\\" + parts[2] + "\\" + parts[3] + "\\";
+        return path.replace('\\', '/');
     }
 
     /**
-     * Returns the Windows UNC path to the WSL user's home directory
-     * (e.g. {@code \\wsl.localhost\Ubuntu\home\gazoon007}).
-     *
-     * <p>This is obtained by running {@code wsl wslpath -w $HOME} and caching the result.
-     * The UNC form lets the Windows JVM access the WSL filesystem directly via
-     * {@link java.nio.file.Files} operations, while {@link #convertToWslPath} on the same
-     * UNC path recovers the native Linux path needed for subprocess arguments.
-     *
-     * <p>Returns {@code null} if not on Windows, if WSL is unavailable, or if the command fails.
+     * Checks if a file exists in WSL by running {@code wsl -e test -f <wslPath>}.
+     * Use this as a fallback when {@code File.exists()} returns false for a WSL UNC path on Windows —
+     * the UNC filesystem service can be slow to respond, causing spurious false negatives.
      */
+    public static boolean wslFileExists(String wslPath) {
+        if (!PlatformUtils.isWindows() || wslPath == null || wslPath.isEmpty() || wslPath.charAt(0) != '/') {
+            return false;
+        }
+        try {
+            ProcessBuilder pb = new ProcessBuilder("wsl", "-e", "test", "-f", wslPath);
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            boolean finished = p.waitFor(3, TimeUnit.SECONDS);
+            if (!finished) {
+                p.destroyForcibly();
+                return false;
+            }
+            return p.exitValue() == 0;
+        } catch (Exception e) {
+            LOG.debug("[NodeDetector] wslFileExists check failed for " + wslPath + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Returns true if {@code filePath} is inside {@code basePath}, normalizing WSL Linux paths correctly on Windows. */
+    public static boolean isPathWithinDirectory(String filePath, String basePath) {
+        if (filePath == null || filePath.isEmpty() || basePath == null) {
+            return false;
+        }
+        String normalizedFile = convertToWslPath(filePath);
+        String normalizedBase = convertToWslPath(basePath);
+        if (normalizedFile != null && normalizedBase != null
+                && normalizedFile.startsWith("/") && normalizedBase.startsWith("/")) {
+            return normalizedFile.startsWith(normalizedBase + "/") || normalizedFile.equals(normalizedBase);
+        }
+        try {
+            String canonicalFile = new File(filePath).getCanonicalPath();
+            String canonicalBase = new File(basePath).getCanonicalPath();
+            return canonicalFile.startsWith(canonicalBase + File.separator) || canonicalFile.equals(canonicalBase);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** Returns the WSL home as a Windows UNC path (e.g. {@code \\wsl.localhost\Ubuntu\home\alice}); runs {@code wslpath -w $HOME} once and caches the result. */
     public static String resolveWslHomeUncPath() {
         if (!PlatformUtils.isWindows()) {
             return null;
@@ -663,24 +684,18 @@ public class NodeDetector {
         return cachedWslHomeUncPath;
     }
 
-    /**
-     * Builds the base of a WSL-aware command list for running a Node.js script file.
-     * When {@code nodePath} is a WSL path, prepends {@code "wsl"} and converts
-     * {@code scriptPath} to a WSL-accessible format via {@link #convertToWslPath}.
-     * Callers may append additional arguments to the returned list.
-     *
-     * <p>Use this instead of repeating the {@code isWslPath} guard inline:
-     * <pre>
-     *     List&lt;String&gt; command = NodeDetector.buildNodeScriptCommand(node, scriptPath);
-     *     command.add("myProvider");
-     *     command.add("myAction");
-     *     ProcessBuilder pb = new ProcessBuilder(command);
-     * </pre>
-     *
-     * @param nodePath   Node.js executable path (may be a WSL Unix-style path on Windows)
-     * @param scriptPath path to the Node.js script file
-     * @return mutable command list
-     */
+    /** Returns the WSL home in forward-slash UNC form for Java NIO file ops (e.g. {@code //wsl.localhost/Ubuntu/home/user}); falls back to {@link PlatformUtils#getHomeDirectory()}. */
+    public static String resolveHomeForFileOps() {
+        if (PlatformUtils.isWindows()) {
+            String wslHomeUnc = resolveWslHomeUncPath();
+            if (wslHomeUnc != null && !wslHomeUnc.isEmpty()) {
+                return wslHomeUnc.replace('\\', '/');
+            }
+        }
+        return PlatformUtils.getHomeDirectory();
+    }
+
+    /** Builds a WSL-aware {@code [wsl] node <scriptPath>} command list; prepends {@code wsl} and converts scriptPath when {@code nodePath} is a WSL path. */
     public static List<String> buildNodeScriptCommand(String nodePath, String scriptPath) {
         List<String> command = new ArrayList<>();
         if (isWslPath(nodePath)) {
@@ -694,17 +709,7 @@ public class NodeDetector {
         return command;
     }
 
-    /**
-     * Builds a WSL-aware command list for running an inline Node.js script via {@code -e <script>}.
-     * When {@code nodePath} is a WSL path, prepends {@code "wsl"}. The script body is passed through
-     * as-is; callers are responsible for any path conversion within the script.
-     *
-     * <p>Use this when invoking Node with inline code rather than a script file.
-     *
-     * @param nodePath   Node.js executable path (may be a WSL Unix-style path on Windows)
-     * @param scriptBody inline JavaScript to execute
-     * @return mutable command list
-     */
+    /** Builds a WSL-aware {@code [wsl] node -e <scriptBody>} command list; prepends {@code wsl} when {@code nodePath} is a WSL path. */
     public static List<String> buildNodeInlineCommand(String nodePath, String scriptBody) {
         List<String> command = new ArrayList<>();
         if (isWslPath(nodePath)) {
@@ -716,15 +721,7 @@ public class NodeDetector {
         return command;
     }
 
-    /**
-     * Converts a Windows file path to a WSL-accessible path.
-     * For example: "C:\Users\foo\bar" becomes "/mnt/c/Users/foo/bar".
-     * UNC paths like "\\wsl.localhost\Ubuntu\home\..." are converted to "/home/...".
-     * If the path is already a Unix-style path, it is returned as-is.
-     *
-     * @param windowsPath the Windows path to convert
-     * @return the WSL-accessible path
-     */
+    /** Converts a Windows or UNC path to its Linux form (e.g. {@code C:\x} → {@code /mnt/c/x}, {@code \\wsl.localhost\Ubuntu\home\x} → {@code /home/x}). */
     public static String convertToWslPath(String windowsPath) {
         if (windowsPath == null || windowsPath.isEmpty()) {
             return windowsPath;
@@ -761,18 +758,7 @@ public class NodeDetector {
         return windowsPath.replace('\\', '/');
     }
 
-    /**
-     * Converts {@code path} to a form safe for embedding inside an inline Node.js script string.
-     * <ul>
-     *   <li>When {@code nodePath} is a WSL path, {@link #convertToWslPath(String)} produces a
-     *       Unix path that needs no further escaping.</li>
-     *   <li>Otherwise, backslashes are doubled so the path is a valid JS string literal.</li>
-     * </ul>
-     *
-     * @param nodePath the Node.js executable path (used to detect WSL context)
-     * @param path     the path to convert
-     * @return path ready for embedding in inline JS
-     */
+    /** Returns {@code path} as a Linux form (via {@link #convertToWslPath}) on WSL, or with backslashes doubled for safe inline JS embedding otherwise. */
     public static String resolveScriptPath(String nodePath, String path) {
         return isWslPath(nodePath) ? convertToWslPath(path) : path.replace("\\", "\\\\");
     }

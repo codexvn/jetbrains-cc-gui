@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
@@ -24,8 +25,12 @@ public class ClaudeHistoryReader {
 
     private static final Logger LOG = Logger.getInstance(ClaudeHistoryReader.class);
 
-    private static final String HOME_DIR = PlatformUtils.getHomeDirectory();
+    private static final String HOME_DIR = resolveClaudeHomeDir();
     private static final Path CLAUDE_DIR = Paths.get(HOME_DIR, ".claude");
+
+    private static String resolveClaudeHomeDir() {
+        return NodeDetector.resolveHomeForFileOps();
+    }
     private static final Path HISTORY_FILE = CLAUDE_DIR.resolve("history.jsonl");
     static final Path PROJECTS_DIR = CLAUDE_DIR.resolve("projects");
 

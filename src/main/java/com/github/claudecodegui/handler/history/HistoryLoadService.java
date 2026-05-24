@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -47,7 +48,7 @@ class HistoryLoadService {
                 String historyJson;
 
                 // Get current project path
-                String projectPath = context.getProject().getBasePath();
+                String projectPath = NodeDetector.convertToWslPath(context.getProject().getBasePath());
                 if (projectPath == null) {
                     LOG.warn("[HistoryHandler] Project base path is null");
                     return;
@@ -128,7 +129,7 @@ class HistoryLoadService {
      * @param provider the provider identifier ("claude" or "codex")
      */
     void handleDeepSearchHistory(String provider) {
-        String projectPath = context.getProject().getBasePath();
+        String projectPath = NodeDetector.convertToWslPath(context.getProject().getBasePath());
         LOG.info("[HistoryHandler] ========== 开始深度搜索 ========== provider=" + provider);
 
         try {

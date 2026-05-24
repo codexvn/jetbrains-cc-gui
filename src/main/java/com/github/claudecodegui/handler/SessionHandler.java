@@ -428,7 +428,7 @@ public class SessionHandler extends BaseMessageHandler {
             if (activeFileDir != null && !activeFileDir.isEmpty()) {
                 return activeFileDir;
             }
-            String userHome = PlatformUtils.getHomeDirectory();
+            String userHome = NodeDetector.resolveHomeForFileOps();
             LOG.warn("[SessionHandler] Using user home directory as fallback: " + userHome);
             return userHome;
         }

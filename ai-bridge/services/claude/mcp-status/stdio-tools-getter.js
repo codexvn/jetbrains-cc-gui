@@ -74,7 +74,8 @@ export async function getStdioServerTools(serverName, serverConfig) {
 
     // Apply the configured timeout
     const timeoutId = setTimeout(() => {
-      finalize(null, `Timeout after ${MCP_TOOLS_TIMEOUT / 1000}s`);
+      const stderrSuffix = stderrBuffer ? '. stderr: ' + stderrBuffer.substring(0, 300) : '';
+      finalize(null, `Timeout after ${MCP_TOOLS_TIMEOUT / 1000}s${stderrSuffix}`);
     }, MCP_TOOLS_TIMEOUT);
 
     try {
@@ -98,6 +99,12 @@ export async function getStdioServerTools(serverName, serverConfig) {
 
       child = spawn(command, args, spawnOptions);
       log('info', '[MCP Tools] Spawned process PID:', child.pid);
+      // Prevent unhandled 'error' events on stdin from becoming uncaught exceptions.
+      // This fires when the child exits before we finish writing (EPIPE), which would
+      // otherwise suppress the [MCP_SERVER_TOOLS] marker and produce a hardcoded Java error.
+      child.stdin.on('error', (err) => {
+        log('debug', '[MCP Tools] stdin pipe error for', serverName + ':', err.message);
+      });
     } catch (spawnError) {
       finalize(null, 'Failed to spawn process: ' + spawnError.message);
       return;

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
 import com.github.claudecodegui.provider.claude.ClaudeHistoryReader;
@@ -41,7 +42,7 @@ class HistoryExportService {
                 String sessionId = exportRequest.get("sessionId").getAsString();
                 String title = exportRequest.get("title").getAsString();
 
-                String projectPath = context.getProject().getBasePath();
+                String projectPath = NodeDetector.convertToWslPath(context.getProject().getBasePath());
                 if (projectPath == null) {
                     LOG.warn("[HistoryHandler] Project base path is null");
                     return;

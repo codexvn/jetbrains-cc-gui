@@ -72,11 +72,14 @@ export async function getMcpServerTools(serverId, cwd = null) {
     const targetServer = mcpServers.find(s => s.name === serverId);
 
     if (!targetServer) {
-      console.log(JSON.stringify({
+      const notFoundJson = JSON.stringify({
         success: false,
         serverId,
-        error: `Server not found: ${serverId}`
-      }));
+        error: `Server not found: ${serverId}`,
+        tools: []
+      });
+      console.log('[MCP_SERVER_TOOLS]', notFoundJson);
+      console.log(notFoundJson);
       return;
     }
 
@@ -100,11 +103,13 @@ export async function getMcpServerTools(serverId, cwd = null) {
 
   } catch (error) {
     console.error('[GET_MCP_SERVER_TOOLS_ERROR]', error.message);
-    console.log(JSON.stringify({
+    const catchJson = JSON.stringify({
       success: false,
       serverId,
       error: error.message,
       tools: []
-    }));
+    });
+    console.log('[MCP_SERVER_TOOLS]', catchJson);
+    console.log(catchJson);
   }
 }

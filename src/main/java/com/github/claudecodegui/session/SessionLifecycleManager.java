@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.SessionTemplate;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -254,8 +255,8 @@ public class SessionLifecycleManager {
             host.getHandlerContext().setSession(newSession);
             host.setupSessionCallbacks();
 
-            String workingDir = (projectPath != null && new File(projectPath).exists())
-                                    ? projectPath : determineWorkingDirectory();
+            String workingDir = (projectPath != null && !projectPath.isEmpty())
+                                    ? projectPath : NodeDetector.convertToWslPath(determineWorkingDirectory());
             newSession.setSessionInfo(sessionId, workingDir);
 
             // Prewarm daemon runtime for the historical session so /context and first message are fast
@@ -290,7 +291,7 @@ public class SessionLifecycleManager {
         String projectPath = host.getProject().getBasePath();
 
         if (projectPath == null || !new File(projectPath).exists()) {
-            String userHome = PlatformUtils.getHomeDirectory();
+            String userHome = NodeDetector.resolveHomeForFileOps();
             LOG.warn("Using user home directory as fallback: " + userHome);
             return userHome;
         }

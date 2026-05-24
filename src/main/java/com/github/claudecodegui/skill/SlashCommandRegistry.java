@@ -1,5 +1,6 @@
 package com.github.claudecodegui.skill;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -513,7 +514,7 @@ public final class SlashCommandRegistry {
     }
 
     private static String resolveUserHome() {
-        String home = PlatformUtils.getHomeDirectory();
+        String home = NodeDetector.resolveHomeForFileOps();
         return home != null ? home : "";
     }
 

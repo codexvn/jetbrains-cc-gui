@@ -123,7 +123,7 @@ class ClaudeSessionQueryService {
         command.add("claude");
         command.add(commandName);
         command.add(sessionId);
-        command.add(cwd != null ? cwd : "");
+        command.add(cwd != null ? NodeDetector.convertToWslPath(cwd) : "");
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workDir);

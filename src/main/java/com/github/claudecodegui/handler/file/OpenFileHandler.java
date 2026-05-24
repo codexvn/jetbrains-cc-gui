@@ -597,12 +597,12 @@ class OpenFileHandler {
                 return null;
             }
 
-            Path projectRoot = new File(basePath).getCanonicalFile().toPath();
+            Path projectRoot = new File(NodeDetector.toVfsPath(basePath)).getCanonicalFile().toPath();
             Path baseDirectory = projectRoot;
             if (context.getSession() != null) {
                 String sessionCwd = context.getSession().getCwd();
                 if (sessionCwd != null && !sessionCwd.isBlank()) {
-                    Path sessionPath = new File(sessionCwd).getCanonicalFile().toPath();
+                    Path sessionPath = new File(NodeDetector.toVfsPath(sessionCwd)).getCanonicalFile().toPath();
                     if (sessionPath.startsWith(projectRoot)) {
                         baseDirectory = sessionPath;
                     }
@@ -650,17 +650,17 @@ class OpenFileHandler {
         String basePath = project != null ? project.getBasePath() : null;
 
         try {
-            Path resolvedPath = new File(absolutePath).getCanonicalFile().toPath();
+            String vfsAbsolute = NodeDetector.toVfsPath(absolutePath);
+            Path resolvedPath = new File(vfsAbsolute).getCanonicalFile().toPath();
             if (basePath != null && !basePath.isBlank()) {
-                Path projectRoot = new File(basePath).getCanonicalFile().toPath();
+                String vfsBase = NodeDetector.toVfsPath(basePath);
+                Path projectRoot = new File(vfsBase).getCanonicalFile().toPath();
                 if (resolvedPath.startsWith(projectRoot)) {
                     Path relativePath = projectRoot.relativize(resolvedPath);
                     String displayPath = relativePath.toString().replace('\\', '/');
                     return displayPath.isBlank() ? "." : displayPath;
                 }
             }
-            // Outside project root (or no project context) — surface the
-            // absolute path. See Javadoc.
             return resolvedPath.toString().replace('\\', '/');
         } catch (Exception e) {
             LOG.debug("Failed to relativize tooltip path: " + e.getMessage());

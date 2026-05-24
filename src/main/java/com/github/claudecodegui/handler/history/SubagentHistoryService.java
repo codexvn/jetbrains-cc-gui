@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.PathUtils;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -98,7 +99,7 @@ class SubagentHistoryService {
 
     private Path resolveSubagentFile(String sessionId, String agentId) {
         validateId("agentId", agentId);
-        Path projectDir = Path.of(PlatformUtils.getHomeDirectory(), ".claude", "projects", projectKey());
+        Path projectDir = Path.of(NodeDetector.resolveHomeForFileOps(), ".claude", "projects", projectKey());
         return projectDir.resolve(sessionId)
                 .resolve("subagents")
                 .resolve("agent-" + agentId + ".jsonl")
@@ -109,7 +110,7 @@ class SubagentHistoryService {
         if (description == null || description.isEmpty()) {
             throw new IllegalArgumentException("Missing agentId and description");
         }
-        Path subagentsDir = Path.of(PlatformUtils.getHomeDirectory(), ".claude", "projects", projectKey())
+        Path subagentsDir = Path.of(NodeDetector.resolveHomeForFileOps(), ".claude", "projects", projectKey())
                 .resolve(sessionId)
                 .resolve("subagents")
                 .normalize();
@@ -157,7 +158,7 @@ class SubagentHistoryService {
     }
 
     private String projectKey() {
-        String basePath = context.getProject().getBasePath();
+        String basePath = NodeDetector.convertToWslPath(context.getProject().getBasePath());
         if (basePath == null || basePath.isEmpty()) {
             throw new IllegalStateException("Project base path is null");
         }

@@ -1,7 +1,9 @@
+// TODO: consider extracting WSL env propagation into a dedicated helper class
 package com.github.claudecodegui.bridge;
 
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.util.ShellExecutor;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -145,7 +147,7 @@ public class EnvironmentConfigurator {
         // The SDK needs HOME to locate the ~/.claude/commands/ directory
         String home = env.get("HOME");
         if (home == null || home.isEmpty()) {
-            home = PlatformUtils.getHomeDirectory();
+            home = NodeDetector.convertToWslPath(NodeDetector.resolveHomeForFileOps());
             if (home != null && !home.isEmpty()) {
                 env.put("HOME", home);
             }
@@ -155,7 +157,7 @@ public class EnvironmentConfigurator {
         // Environment variables may be missing when launched from macOS GUI; relying on implicit defaults causes unstable feature detection (e.g. skills tool appearing intermittently)
         String codexHome = env.get(CODEX_HOME_ENV);
         if (codexHome == null || codexHome.trim().isEmpty()) {
-            String userHome = PlatformUtils.getHomeDirectory();
+            String userHome = NodeDetector.resolveHomeForFileOps();
             if (userHome != null && !userHome.isEmpty()) {
                 env.put(CODEX_HOME_ENV, Paths.get(userHome, ".codex").toString());
             }
@@ -485,7 +487,7 @@ public class EnvironmentConfigurator {
      */
     private Set<String> parseCodexConfigEnvKeys() {
         Set<String> envKeys = new HashSet<>();
-        String home = PlatformUtils.getHomeDirectory();
+        String home = NodeDetector.resolveHomeForFileOps();
         if (home == null || home.isEmpty()) {
             return envKeys;
         }
@@ -705,7 +707,7 @@ public class EnvironmentConfigurator {
      * @return Value or null
      */
     private String parseEnvFromShellConfigs(String envName) {
-        String home = PlatformUtils.getHomeDirectory();
+        String home = NodeDetector.resolveHomeForFileOps();
         if (home == null || home.isEmpty()) {
             return null;
         }

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cache;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.TextSanitizer;
 import com.google.gson.Gson;
@@ -23,7 +24,7 @@ public class SessionIndexManager {
 
     private static final Logger LOG = Logger.getInstance(SessionIndexManager.class);
 
-    private static final Path DEFAULT_CODEMOSS_CACHE_DIR = Paths.get(PlatformUtils.getHomeDirectory(), ".codemoss", "cache");
+    private static final Path DEFAULT_CODEMOSS_CACHE_DIR = Paths.get(NodeDetector.resolveHomeForFileOps(), ".codemoss", "cache");
     private static final String CLAUDE_INDEX_FILE = "claude-session-index.json";
     private static final String CODEX_INDEX_FILE = "codex-session-index.json";
     private static final int INDEX_REPLACE_MAX_ATTEMPTS = 5;

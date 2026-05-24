@@ -1,5 +1,6 @@
 package com.github.claudecodegui.settings;
 
+import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -141,7 +142,7 @@ public class ClaudeSettingsManager {
      */
     public void syncMcpToClaudeSettings() throws IOException {
         try {
-            String homeDir = PlatformUtils.getHomeDirectory();
+            String homeDir = NodeDetector.resolveHomeForFileOps();
 
             // Read ~/.claude.json
             Path claudeJsonPath = Paths.get(homeDir, ".claude.json");
@@ -222,7 +223,7 @@ public class ClaudeSettingsManager {
      */
     public JsonObject readCliLoginAccountInfo() {
         try {
-            String homeDir = PlatformUtils.getHomeDirectory();
+            String homeDir = NodeDetector.resolveHomeForFileOps();
             Path claudeJsonPath = Paths.get(homeDir, ".claude.json");
             File claudeJsonFile = claudeJsonPath.toFile();
 
