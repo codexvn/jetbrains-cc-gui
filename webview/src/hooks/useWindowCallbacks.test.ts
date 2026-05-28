@@ -2,6 +2,11 @@ import { act, renderHook } from '@testing-library/react';
 import { useWindowCallbacks } from './useWindowCallbacks.js';
 import type { UseWindowCallbacksOptions } from './useWindowCallbacks.js';
 import type { ClaudeMessage } from '../types/index.js';
+import { forceWebviewRepaint } from '../utils/forceWebviewRepaint.js';
+
+// Mock the repaint util so we can assert the session-transition path triggers it
+// without touching the real DOM (there is no #app element under jsdom).
+vi.mock('../utils/forceWebviewRepaint.js', () => ({ forceWebviewRepaint: vi.fn() }));
 
 /**
  * Integration tests for useWindowCallbacks — verifies the real window callback
@@ -532,6 +537,20 @@ describe('useWindowCallbacks integration', () => {
     expect(isStreamingRef.current).toBe(false);
     expect(streamingContentRef.current).toBe('');
     expect(streamingMessageIndexRef.current).toBe(-1);
+  });
+
+  // ===== clearMessages forces a webview repaint to clear JCEF ghosting =====
+
+  it('clearMessages triggers forceWebviewRepaint to clear leftover ghosting', () => {
+    const opts = createOptions();
+    renderHook(() => useWindowCallbacks(opts));
+    vi.mocked(forceWebviewRepaint).mockClear();
+
+    act(() => {
+      window.clearMessages!();
+    });
+
+    expect(forceWebviewRepaint).toHaveBeenCalled();
   });
 
   // ===== clearMessages resets turn tracking refs =====
