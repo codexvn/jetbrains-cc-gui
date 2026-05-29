@@ -140,6 +140,15 @@ public class CallbackHandler {
     }
 
     /**
+     * Notify that a file was modified by a tool operation.
+     */
+    public void notifyFileModified(String filePath) {
+        if (callback != null) {
+            callback.onFileModified(filePath);
+        }
+    }
+
+    /**
      * Notify that a specific message received its provider UUID.
      */
     public void notifyUserMessageUuidPatched(String content, String uuid) {

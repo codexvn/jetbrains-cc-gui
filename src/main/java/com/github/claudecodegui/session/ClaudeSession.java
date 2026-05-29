@@ -120,6 +120,9 @@ public class ClaudeSession {
 
         default void onUserMessageUuidPatched(String content, String uuid) {
         }
+
+        default void onFileModified(String filePath) {
+        }
     }
 
     public ClaudeSession(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
