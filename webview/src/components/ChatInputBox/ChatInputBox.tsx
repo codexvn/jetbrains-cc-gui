@@ -105,6 +105,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onAutoOpenFileEnabledChange,
       longContextEnabled = true,
       onLongContextChange,
+      onCommit,
     }: ChatInputBoxProps,
     ref: React.ForwardedRef<ChatInputBoxHandle>
   ) => {
@@ -700,6 +701,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onClearAgent={() => onAgentSelect?.(null)}
           longContextEnabled={longContextEnabled}
           onLongContextChange={onLongContextChange}
+          onCommit={onCommit}
           fileCompletion={fileCompletion}
           commandCompletion={commandCompletion}
           agentCompletion={agentCompletion}

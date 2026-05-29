@@ -654,6 +654,8 @@ export interface ChatInputBoxProps {
   longContextEnabled?: boolean;
   /** Toggle long context callback */
   onLongContextChange?: (enabled: boolean) => void;
+  /** Commit button click callback */
+  onCommit?: () => void;
 }
 
 /**
@@ -709,6 +711,8 @@ export interface ButtonAreaProps {
   longContextEnabled?: boolean;
   /** Toggle long context callback */
   onLongContextChange?: (enabled: boolean) => void;
+  /** Commit button click callback */
+  onCommit?: () => void;
 }
 
 /**

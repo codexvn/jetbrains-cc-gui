@@ -146,6 +146,10 @@ export const ChatScreen = ({
     openChangelogDialog,
   } = useUIState();
 
+  const handleCommit = () => {
+    onSubmit(t('commit.helpMeCommit', '帮我提交'));
+  };
+
   return (
     <>
       <div className="messages-shell">
@@ -279,6 +283,7 @@ export const ChatScreen = ({
           onAutoOpenFileEnabledChange={onAutoOpenFileEnabledChange}
           longContextEnabled={longContextEnabled}
           onLongContextChange={onLongContextChange}
+          onCommit={handleCommit}
         />
       </div>
     </>

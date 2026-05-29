@@ -92,6 +92,7 @@ export const ButtonArea = ({
   onAddModel,
   longContextEnabled = true,
   onLongContextChange,
+  onCommit,
 }: ButtonAreaProps) => {
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
@@ -241,6 +242,14 @@ export const ButtonArea = ({
     onEnhancePrompt?.();
   }, [onEnhancePrompt]);
 
+  /**
+   * Handle commit button click
+   */
+  const handleCommitClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCommit?.();
+  }, [onCommit]);
+
   return (
     <div className="button-area" data-provider={currentProvider}>
       {/* Left side: selectors */}
@@ -263,6 +272,14 @@ export const ButtonArea = ({
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
         <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
+        <button
+          className="commit-button has-tooltip"
+          onClick={handleCommitClick}
+          disabled={disabled || isLoading}
+          data-tooltip={t('button.commitTooltip')}
+        >
+          <span className="codicon codicon-git-commit" />
+        </button>
       </div>
 
       {/* Right side: tool buttons */}
