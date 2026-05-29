@@ -388,6 +388,22 @@ public class ClaudeChatWindow {
         loadRestoredHistoryIfNeeded(currentState);
     }
 
+    public void triggerScaleRefresh() {
+        if (disposed || browser == null) {
+            return;
+        }
+        // 通知 Chromium 屏幕 DPI 可能已改变，强制重新计算 devicePixelRatio
+        // CSS zoom 切换只能修复 DOM 层面的缩放，底层渲染缓冲区需要原生 API 通知
+        try {
+            browser.getCefBrowser().notifyScreenInfoChanged();
+            java.awt.Component c = browser.getComponent();
+            browser.getCefBrowser().wasResized(c.getWidth(), c.getHeight());
+        } catch (Exception e) {
+            LOG.warn("Failed to notify JCEF screen info change: " + e.getMessage());
+        }
+        callJavaScript("forceScaleRecovery", "tab-selected");
+    }
+
     private void loadRestoredHistoryIfNeeded(TabStateService.TabSessionState savedState) {
         if (!TabSessionRestorePolicy.shouldLoadHistory(savedState) || session == null) {
             return;
