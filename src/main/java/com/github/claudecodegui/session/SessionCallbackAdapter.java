@@ -2,6 +2,7 @@ package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.handler.PermissionHandler;
 import com.github.claudecodegui.permission.PermissionRequest;
+import com.github.claudecodegui.util.EditorFileUtils;
 import com.github.claudecodegui.util.JsUtils;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -353,6 +354,16 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
             return;
         }
         jsTarget.callJavaScript("patchMessageUuid", JsUtils.escapeJs(content), JsUtils.escapeJs(uuid));
+    }
+
+    @Override
+    public void onFileModified(String filePath) {
+        if (isInactive() || filePath == null || filePath.isEmpty()) return;
+        EditorFileUtils.refreshAndFindFileAsync(
+                new java.io.File(filePath),
+                vf -> LOG.debug("File refreshed after tool modification: " + filePath),
+                () -> LOG.warn("Failed to refresh file after tool modification: " + filePath)
+        );
     }
 
     /**

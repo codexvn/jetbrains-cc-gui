@@ -8,12 +8,15 @@ import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.util.TokenUsageUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Claude message callback handler.
@@ -29,6 +32,9 @@ public class ClaudeMessageHandler implements MessageCallback {
     private final MessageMerger messageMerger;
     private final ReplayDeduplicator replayDedup = new ReplayDeduplicator();
     private final Gson gson;
+
+    /** Maps tool_use_id to file path for file-modifying tools, so VFS refresh can be triggered on tool_result. */
+    private final Map<String, String> pendingToolFiles = new HashMap<>();
 
     // Content accumulator for the current assistant message
     private final StringBuilder assistantContent = new StringBuilder();
@@ -300,7 +306,14 @@ public class ClaudeMessageHandler implements MessageCallback {
                             String type = element.getAsJsonObject().get("type").getAsString();
                             if ("tool_use".equals(type)) {
                                 hasToolUse = true;
-                                break;
+                                JsonObject block = element.getAsJsonObject();
+                                String tid = block.has("id") ? block.get("id").getAsString() : null;
+                                if (tid != null) {
+                                    String filePath = extractToolFilePath(block);
+                                    if (filePath != null) {
+                                        pendingToolFiles.put(tid, filePath);
+                                    }
+                                }
                             }
                         }
                     }
@@ -472,6 +485,8 @@ public class ClaudeMessageHandler implements MessageCallback {
                 Message toolResultMessage = new Message(Message.Type.USER, "[tool_result]", userMsg);
                 state.addMessage(toolResultMessage);
                 LOG.debug("Added tool_result user message to state");
+                // Immediately refresh modified files in the IDE
+                notifyFilesForToolResults(userMsg);
                 callbackHandler.notifyMessageUpdate(state.getMessages());
                 return;
             }
@@ -546,6 +561,11 @@ public class ClaudeMessageHandler implements MessageCallback {
                 state.addMessage(toolResultMessage);
 
                 LOG.debug("Tool result received for tool_use_id: " + toolUseId);
+                // Immediately refresh the modified file in the IDE
+                String filePath = pendingToolFiles.remove(toolUseId);
+                if (filePath != null) {
+                    callbackHandler.notifyFileModified(filePath);
+                }
                 callbackHandler.notifyMessageUpdate(state.getMessages());
             }
         } catch (Exception e) {
@@ -959,5 +979,46 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         target.addProperty("thinking", existing + delta);
         return true;
+    }
+
+    /**
+     * Extract the target file path from a tool_use block's input.
+     * Returns the file path for file-modifying tools, or null for other tools.
+     */
+    private String extractToolFilePath(JsonObject toolUseBlock) {
+        String name = toolUseBlock.has("name") ? toolUseBlock.get("name").getAsString() : null;
+        if (name == null) return null;
+
+        if (!toolUseBlock.has("input") || !toolUseBlock.get("input").isJsonObject()) return null;
+        JsonObject input = toolUseBlock.getAsJsonObject("input");
+
+        if (input.has("file_path") && !input.get("file_path").isJsonNull()) {
+            return input.get("file_path").getAsString();
+        }
+        if ("NotebookEdit".equals(name) && input.has("notebook_path") && !input.get("notebook_path").isJsonNull()) {
+            return input.get("notebook_path").getAsString();
+        }
+        return null;
+    }
+
+    /**
+     * Notify for file-modifying tool_results found in a user message's content blocks.
+     */
+    private void notifyFilesForToolResults(JsonObject userMsg) {
+        if (!userMsg.has("message") || !userMsg.get("message").isJsonObject()) return;
+        JsonObject message = userMsg.getAsJsonObject("message");
+        if (!message.has("content") || !message.get("content").isJsonArray()) return;
+        JsonArray contentArray = message.getAsJsonArray("content");
+        for (JsonElement element : contentArray) {
+            if (!element.isJsonObject()) continue;
+            JsonObject block = element.getAsJsonObject();
+            if (!block.has("type") || !"tool_result".equals(block.get("type").getAsString())) continue;
+            String tid = block.has("tool_use_id") ? block.get("tool_use_id").getAsString() : null;
+            if (tid == null) continue;
+            String filePath = pendingToolFiles.remove(tid);
+            if (filePath != null) {
+                callbackHandler.notifyFileModified(filePath);
+            }
+        }
     }
 }
