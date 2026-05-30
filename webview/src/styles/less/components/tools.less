@@ -160,11 +160,19 @@
 
 .bash-output-block {
     margin-top: 8px;
-    font-family: var(--idea-editor-font-family, 'JetBrains Mono', 'Consolas', monospace);
+    font-family: var(--cc-gui-code-font-family, var(--idea-editor-font-family, 'JetBrains Mono', 'Consolas', monospace));
     font-size: 12px;
     white-space: pre-wrap;
     display: flex;
     gap: 6px;
+    min-width: 0;
+}
+
+.bash-output-text {
+    min-width: 0;
+    white-space: inherit;
+    word-break: inherit;
+    overflow-wrap: inherit;
 }
 
 .bash-output-block.normal {
@@ -377,6 +385,10 @@
     text-overflow: ellipsis;
 }
 
+.bash-timeline-description-command {
+    font-family: var(--cc-gui-code-font-family, var(--idea-editor-font-family, 'JetBrains Mono', 'Consolas', monospace));
+}
+
 /* 展开的详情 */
 .bash-timeline-detail {
     margin-top: 8px;
@@ -394,6 +406,11 @@
     font-size: 11px;
     max-height: 150px;
     overflow-y: auto;
+}
+
+.bash-timeline-detail .bash-output-text {
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 /* 亮色模式适配 */
