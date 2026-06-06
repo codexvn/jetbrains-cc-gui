@@ -8,7 +8,6 @@ import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.session.SessionState;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;

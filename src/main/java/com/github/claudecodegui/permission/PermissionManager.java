@@ -1,6 +1,6 @@
 package com.github.claudecodegui.permission;
 
-import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.util.WslPathUtil;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.project.Project;
 import java.util.*;
@@ -229,7 +229,7 @@ public class PermissionManager {
             return false;
         }
 
-        return NodeDetector.isPathWithinDirectory(filePath, basePath);
+        return WslPathUtil.isPathWithinDirectory(filePath, basePath);
     }
 
     /**

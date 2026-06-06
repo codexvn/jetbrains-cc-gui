@@ -125,7 +125,13 @@ public class WorkspaceContextCollector {
             // 4. Determine which subproject the active file belongs to
             String projectBasePath = project.getBasePath();
             if (projectBasePath != null) {
-                workspaceData.addProperty("workspaceRoot", NodeDetector.convertToWslPath(projectBasePath));
+                // Only translate to a WSL path when the configured node is a WSL binary,
+                // mirroring ClaudeSDKBridge#normalizeCwdForNode; a native node keeps the path as-is.
+                String nodePath = NodeDetector.getInstance().getCachedNodePath();
+                String workspaceRoot = (nodePath != null && NodeDetector.isWslPath(nodePath))
+                        ? NodeDetector.convertToWslPath(projectBasePath)
+                        : projectBasePath;
+                workspaceData.addProperty("workspaceRoot", workspaceRoot);
             }
 
         } catch (Throwable t) {

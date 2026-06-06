@@ -5,7 +5,6 @@ import com.github.claudecodegui.model.PromptScope;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.github.claudecodegui.bridge.NodeDetector;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;

@@ -1,7 +1,6 @@
 package com.github.claudecodegui.cache;
 
 import com.github.claudecodegui.bridge.NodeDetector;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.TextSanitizer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -24,7 +23,6 @@ public class SessionIndexManager {
 
     private static final Logger LOG = Logger.getInstance(SessionIndexManager.class);
 
-    private static final Path DEFAULT_CODEMOSS_CACHE_DIR = Paths.get(NodeDetector.resolveHomeForFileOps(), ".codemoss", "cache");
     private static final String CLAUDE_INDEX_FILE = "claude-session-index.json";
     private static final String CODEX_INDEX_FILE = "codex-session-index.json";
     private static final int INDEX_REPLACE_MAX_ATTEMPTS = 5;
@@ -42,11 +40,12 @@ public class SessionIndexManager {
     private final Path codemossCacheDir;
     private final Object indexFileLock = new Object();
 
-    // Singleton
-    private static final SessionIndexManager INSTANCE = new SessionIndexManager();
+    private static Path defaultCacheDir() {
+        return Paths.get(NodeDetector.resolveHomeForFileOps(), ".codemoss", "cache");
+    }
 
     private SessionIndexManager() {
-        this(DEFAULT_CODEMOSS_CACHE_DIR);
+        this(defaultCacheDir());
     }
 
     SessionIndexManager(Path codemossCacheDir) {
@@ -54,8 +53,12 @@ public class SessionIndexManager {
         ensureCacheDir();
     }
 
+    private static final class Holder {
+        private static final SessionIndexManager INSTANCE = new SessionIndexManager();
+    }
+
     public static SessionIndexManager getInstance() {
-        return INSTANCE;
+        return Holder.INSTANCE;
     }
 
     /**

@@ -1,6 +1,6 @@
 package com.github.claudecodegui.handler.file;
 
-import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.util.WslPathUtil;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -60,7 +60,7 @@ public class UndoFileHandler extends BaseMessageHandler {
             LOG.warn("[UndoFileHandler] Cannot validate path: project base path is null");
             return false;
         }
-        boolean isValid = NodeDetector.isPathWithinDirectory(filePath, projectBasePath);
+        boolean isValid = WslPathUtil.isPathWithinDirectory(filePath, projectBasePath);
         if (!isValid) {
             LOG.warn("[UndoFileHandler] File path outside project directory: " + filePath);
         }
@@ -196,7 +196,7 @@ public class UndoFileHandler extends BaseMessageHandler {
     }
 
     private void deleteFile(String filePath) throws Exception {
-        VirtualFile file = LocalFileSystem.getInstance().findFileByPath(NodeDetector.toVfsPath(filePath));
+        VirtualFile file = LocalFileSystem.getInstance().findFileByPath(WslPathUtil.toVfsPath(filePath));
         if (file == null || !file.exists()) {
             LOG.warn("[UndoFileHandler] File not found for deletion: " + filePath);
             // File already doesn't exist, treat as success
@@ -223,7 +223,7 @@ public class UndoFileHandler extends BaseMessageHandler {
     }
 
     private void reverseEdits(String filePath, JsonArray operations) throws Exception {
-        VirtualFile file = LocalFileSystem.getInstance().findFileByPath(NodeDetector.toVfsPath(filePath));
+        VirtualFile file = LocalFileSystem.getInstance().findFileByPath(WslPathUtil.toVfsPath(filePath));
         if (file == null || !file.exists()) {
             throw new Exception("File not found: " + filePath);
         }

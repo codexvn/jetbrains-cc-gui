@@ -5,7 +5,6 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.settings.ProviderManager;
 
 import com.github.claudecodegui.model.DeleteResult;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;

@@ -1,6 +1,6 @@
 package com.github.claudecodegui.permission;
 
-import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.util.WslPathUtil;
 import com.github.claudecodegui.handler.diff.DiffResult;
 import com.github.claudecodegui.handler.diff.InteractiveDiffManager;
 import com.github.claudecodegui.handler.diff.InteractiveDiffRequest;
@@ -68,7 +68,7 @@ public class DiffReviewService {
 
         // Security: validate file path is within project directory
         String projectBasePath = project.getBasePath();
-        if (projectBasePath != null && !NodeDetector.isPathWithinDirectory(filePath, projectBasePath)) {
+        if (projectBasePath != null && !WslPathUtil.isPathWithinDirectory(filePath, projectBasePath)) {
             LOG.warn("DiffReview: Security - file path outside project: " + filePath);
             return null;
         }
@@ -147,7 +147,7 @@ public class DiffReviewService {
         return ApplicationManager.getApplication().runReadAction((Computable<String>) () -> {
             try {
                 VirtualFile vFile = LocalFileSystem.getInstance()
-                        .refreshAndFindFileByPath(NodeDetector.toVfsPath(filePath));
+                        .refreshAndFindFileByPath(WslPathUtil.toVfsPath(filePath));
                 if (vFile != null && vFile.exists() && !vFile.isDirectory()) {
                     Charset charset = vFile.getCharset() != null ? vFile.getCharset() : StandardCharsets.UTF_8;
                     return new String(vFile.contentsToByteArray(), charset);

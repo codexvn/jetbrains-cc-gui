@@ -3,7 +3,6 @@ package com.github.claudecodegui.handler.history;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.PathUtils;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.JsUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
