@@ -91,6 +91,7 @@
     "streamingConnected": "{{provider}} 已成功连接，正在理解问题",
     "showEarlierMessages": "显示之前的 {{count}} 条消息",
     "totalDuration": "本次耗时",
+    "tokenUsage": "输入 {{input}} / 输出 {{output}}",
     "search": {
       "ariaLabel": "在对话中搜索",
       "placeholder": "在对话中搜索…",

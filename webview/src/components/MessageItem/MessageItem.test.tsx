@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import type { ClaudeContentBlock, ClaudeMessage, ToolResultBlock } from '../../types';
-import { extractMarkdownContent } from '../../utils/copyUtils';
-import { MessageItem } from './MessageItem';
+import {render, screen} from '@testing-library/react';
+import {describe, expect, it, vi} from 'vitest';
+import type {ClaudeContentBlock, ClaudeMessage, ToolResultBlock} from '../../types';
+import {extractMarkdownContent} from '../../utils/copyUtils';
+import {MessageItem} from './MessageItem';
 
 vi.mock('../MarkdownBlock', () => ({
   default: ({ content }: { content: string }) => <div data-testid="markdown-block">{content}</div>,
@@ -29,14 +29,21 @@ vi.mock('./ProviderNotConfiguredCard', () => ({
   isProviderNotConfiguredError: () => false,
 }));
 
-const t = ((key: string) => {
+const t = ((key: string, opts?: Record<string, string>) => {
   const translations: Record<string, string> = {
     'markdown.copyMessage': '复制消息',
     'markdown.copySuccess': '已复制',
     'chat.streamingConnected': '已连接',
     'chat.totalDuration': '本次耗时',
+    'chat.tokenUsage': '输入 {{input}} / 输出 {{output}}',
   };
-  return translations[key] ?? key;
+  let result = translations[key] ?? key;
+  if (opts) {
+    for (const [k, v] of Object.entries(opts)) {
+      result = result.replace(`{{${k}}}`, v);
+    }
+  }
+  return result;
 }) as any;
 
 const getMessageText = (message: ClaudeMessage) => message.content ?? '';
@@ -151,5 +158,113 @@ describe('MessageItem copy button visibility', () => {
 
     expect(screen.getByTestId('bash-tool-group-block')).toBeTruthy();
     expect(screen.queryAllByTestId('content-block-tool_use')).toHaveLength(0);
+  });
+});
+
+describe('MessageItem token usage display', () => {
+  it('shows token usage alongside duration when usage data is present', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'Hello',
+      durationMs: 16000,
+      raw: {
+        message: {
+          content: [{type: 'text', text: 'Hello'}],
+          usage: {
+            input_tokens: 1200,
+            output_tokens: 456,
+          },
+        },
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    expect(screen.getByText('0:16')).toBeTruthy();
+    expect(screen.getByText('输入 1.2K / 输出 456')).toBeTruthy();
+  });
+
+  it('shows only billed input/output tokens, ignoring cache', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'Hello',
+      durationMs: 10000,
+      raw: {
+        message: {
+          content: [{type: 'text', text: 'Hello'}],
+          usage: {
+            input_tokens: 37,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 36310,
+            output_tokens: 353,
+          },
+        },
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    // Only shows input_tokens (37) and output_tokens (353), not cache
+    expect(screen.getByText('输入 37 / 输出 353')).toBeTruthy();
+  });
+
+  it('shows token usage from top-level usage (Codex path)', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'Hello',
+      durationMs: 5000,
+      raw: {
+        content: [{type: 'text', text: 'Hello'}],
+        usage: {
+          input_tokens: 500,
+          output_tokens: 200,
+        },
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    expect(screen.getByText('0:05')).toBeTruthy();
+    expect(screen.getByText('输入 500 / 输出 200')).toBeTruthy();
+  });
+
+  it('does not show token usage when no usage data is present', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'Hello',
+      durationMs: 3000,
+      raw: {
+        message: {
+          content: [{type: 'text', text: 'Hello'}],
+        },
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    expect(screen.getByText('0:03')).toBeTruthy();
+    expect(screen.queryByText(/总/)).toBeNull();
+  });
+
+  it('does not show token usage when tokens are all zero', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'Hello',
+      durationMs: 3000,
+      raw: {
+        message: {
+          content: [{type: 'text', text: 'Hello'}],
+          usage: {
+            input_tokens: 0,
+            output_tokens: 0,
+          },
+        },
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    expect(screen.getByText('0:03')).toBeTruthy();
+    expect(screen.queryByText(/总/)).toBeNull();
   });
 });

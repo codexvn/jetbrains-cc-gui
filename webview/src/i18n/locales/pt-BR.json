@@ -91,6 +91,7 @@
     "streamingConnected": "{{provider}} conectado, entendendo sua pergunta",
     "showEarlierMessages": "Mostrar {{count}} mensagens anteriores",
     "totalDuration": "Esta resposta levou",
+    "tokenUsage": "{{input}} entrada / {{output}} saída",
     "search": {
       "ariaLabel": "Pesquisar na conversa",
       "placeholder": "Pesquisar na conversa…",

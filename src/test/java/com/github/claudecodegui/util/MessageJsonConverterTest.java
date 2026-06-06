@@ -8,9 +8,7 @@ import org.junit.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class MessageJsonConverterTest {
 
@@ -58,7 +56,8 @@ public class MessageJsonConverterTest {
         assertTrue(transportMessage.has("content"));
         assertFalse(transportMessage.has("id"));
         assertFalse(transportMessage.has("model"));
-        assertFalse(transportMessage.has("usage"));
+        assertTrue(transportMessage.has("usage"));
+        assertEquals(321, transportMessage.getAsJsonObject("usage").get("input_tokens").getAsInt());
     }
 
     @Test

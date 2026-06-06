@@ -1,24 +1,30 @@
-import { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
-import type { TFunction } from 'i18next';
-import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../../types';
+import {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import type {TFunction} from 'i18next';
+import type {ClaudeContentBlock, ClaudeMessage, ToolResultBlock} from '../../types';
 
 import MarkdownBlock from '../MarkdownBlock';
-import { ProviderNotConfiguredCard, isProviderNotConfiguredError } from './ProviderNotConfiguredCard';
-import { ErrorDiagnosticCard } from './ErrorDiagnosticCard';
-import { matchErrorPattern } from '../../utils/errorMatcher';
+import {isProviderNotConfiguredError, ProviderNotConfiguredCard} from './ProviderNotConfiguredCard';
+import {ErrorDiagnosticCard} from './ErrorDiagnosticCard';
+import {matchErrorPattern} from '../../utils/errorMatcher';
 import {
+  BashToolBlock,
+  BashToolGroupBlock,
   EditToolBlock,
   EditToolGroupBlock,
   ReadToolBlock,
   ReadToolGroupBlock,
-  BashToolBlock,
-  BashToolGroupBlock,
   SearchToolGroupBlock,
 } from '../toolBlocks';
-import { ContentBlockRenderer } from './ContentBlockRenderer';
-import { formatTime } from '../../utils/helpers';
-import { copyToClipboard } from '../../utils/copyUtils';
-import { READ_TOOL_NAMES, EDIT_TOOL_NAMES, BASH_TOOL_NAMES, SEARCH_TOOL_NAMES, isToolName } from '../../utils/toolConstants';
+import {ContentBlockRenderer} from './ContentBlockRenderer';
+import {formatTime} from '../../utils/helpers';
+import {copyToClipboard} from '../../utils/copyUtils';
+import {
+  BASH_TOOL_NAMES,
+  EDIT_TOOL_NAMES,
+  isToolName,
+  READ_TOOL_NAMES,
+  SEARCH_TOOL_NAMES
+} from '../../utils/toolConstants';
 
 export interface MessageItemProps {
   message: ClaudeMessage;
@@ -101,6 +107,44 @@ function formatDurationMs(durationMs: number): string {
     return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
   }
   return `${minutes}:${String(remainder).padStart(2, '0')}`;
+}
+
+interface TokenUsageInfo {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/**
+ * Extract per-message billed token usage from a message's raw JSON.
+ * Tries `raw.message.usage` (Claude) then `raw.usage` (Codex).
+ * Returns null when no meaningful usage data is found.
+ *
+ * These are the actual `input_tokens` and `output_tokens` reported by the
+ * API provider — the tokens that are billed (cache tokens are separate).
+ */
+function extractTokenUsage(raw: ClaudeMessage['raw']): TokenUsageInfo | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const msgObj = raw as Record<string, unknown>;
+  const message = typeof msgObj.message === 'object' && msgObj.message !== null
+      ? msgObj.message as Record<string, unknown>
+      : null;
+  const usageSrc = (message && typeof message.usage === 'object' && message.usage !== null)
+      ? message.usage as Record<string, unknown>
+      : typeof msgObj.usage === 'object' && msgObj.usage !== null
+          ? msgObj.usage as Record<string, unknown>
+          : null;
+  if (!usageSrc) return null;
+  const input = typeof usageSrc.input_tokens === 'number' ? usageSrc.input_tokens : 0;
+  const output = typeof usageSrc.output_tokens === 'number' ? usageSrc.output_tokens : 0;
+  if (input === 0 && output === 0) return null;
+  return {inputTokens: input, outputTokens: output};
+}
+
+/** Format a token count for compact display (e.g., 1234 → "1.2K"). */
+function formatTokenCount(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return String(count);
 }
 
 function isToolBlockOfType(block: ClaudeContentBlock, toolNames: Set<string>): boolean {
@@ -613,13 +657,28 @@ export const MessageItem = memo(function MessageItem({
         {renderGroupedBlocks()}
       </div>
 
-      {/* Duration display after last assistant message */}
+      {/* Duration and token display after last assistant message */}
       {message.type === 'assistant' && !isMessageStreaming && typeof message.durationMs === 'number' && (
         <div className="message-duration">
           <span className="message-duration-inner">
             <span className="message-duration-flag codicon codicon-clock"></span>
             <span className="message-duration-cost">{t('chat.totalDuration')}</span>
             <span className="message-duration-value">{formatDurationMs(message.durationMs)}</span>
+            {(() => {
+              const tokenInfo = extractTokenUsage(message.raw);
+              if (!tokenInfo) return null;
+              return (
+                  <>
+                    <span className="message-duration-separator">·</span>
+                    <span className="message-duration-tokens">
+                    {t('chat.tokenUsage', {
+                      input: formatTokenCount(tokenInfo.inputTokens),
+                      output: formatTokenCount(tokenInfo.outputTokens),
+                    })}
+                  </span>
+                  </>
+              );
+            })()}
           </span>
         </div>
       )}

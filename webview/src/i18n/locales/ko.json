@@ -91,6 +91,7 @@
     "streamingConnected": "{{provider}} 연결됨, 질문을 이해하는 중",
     "showEarlierMessages": "이전 메시지 {{count}}개 보기",
     "totalDuration": "이번 응답 소요 시간",
+    "tokenUsage": "입력 {{input}} / 출력 {{output}}",
     "search": {
       "ariaLabel": "대화에서 검색",
       "placeholder": "대화에서 검색...",

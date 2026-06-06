@@ -91,6 +91,7 @@
     "streamingConnected": "{{provider}}に接続しました、質問を理解しています",
     "showEarlierMessages": "以前の{{count}}件のメッセージを表示",
     "totalDuration": "今回の応答時間",
+    "tokenUsage": "入力 {{input}} / 出力 {{output}}",
     "search": {
       "ariaLabel": "会話内を検索",
       "placeholder": "会話内を検索...",

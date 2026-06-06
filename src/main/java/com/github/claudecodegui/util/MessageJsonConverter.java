@@ -1,8 +1,8 @@
 package com.github.claudecodegui.util;
 
-import com.github.claudecodegui.session.ClaudeSession;
-import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.SettingsHandler;
+import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.session.ClaudeSession;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -199,6 +199,8 @@ public class MessageJsonConverter {
         copyFieldIfPresent(raw, transport, "summarizeMetadata");
         // Origin field for distinguishing human input from synthetic messages
         copyFieldIfPresent(raw, transport, "origin");
+        // Usage field for per-message token display (Codex path: top-level usage)
+        copyFieldIfPresent(raw, transport, "usage");
 
         if (raw.has("content")) {
             transport.add("content", raw.get("content").deepCopy());
@@ -210,6 +212,8 @@ public class MessageJsonConverter {
             if (sourceMessage.has("content")) {
                 transportMessage.add("content", sourceMessage.get("content").deepCopy());
             }
+            // Usage inside message object (Claude path: raw.message.usage)
+            copyFieldIfPresent(sourceMessage, transportMessage, "usage");
             if (transportMessage.size() > 0) {
                 transport.add("message", transportMessage);
             }

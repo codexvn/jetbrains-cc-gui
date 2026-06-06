@@ -91,6 +91,7 @@
     "streamingConnected": "{{provider}} обрабатывает запрос",
     "showEarlierMessages": "Показать предыдущие сообщения ({{count}})",
     "totalDuration": "Этот ответ занял",
+    "tokenUsage": "вход {{input}} / выход {{output}}",
     "search": {
       "ariaLabel": "Поиск в беседе",
       "placeholder": "Поиск в беседе…",

@@ -91,6 +91,7 @@
     "streamingConnected": "{{provider}} कनेक्ट हो गया, आपके प्रश्न को समझ रहा है",
     "showEarlierMessages": "{{count}} पुराने संदेश दिखाएं",
     "totalDuration": "इस जवाब में लगा समय",
+    "tokenUsage": "{{input}} इन / {{output}} आउट",
     "search": {
       "ariaLabel": "बातचीत में खोजें",
       "placeholder": "बातचीत में खोजें...",
