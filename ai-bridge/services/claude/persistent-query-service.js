@@ -36,6 +36,7 @@ import {
   resetCachedQueryFn,
   setCachedQueryFn,
   touchRuntime,
+  createTurnSink,
 } from './runtime-lifecycle.js';
 import {
   SESSION_CLEANUP_INTERVAL_MS,
@@ -266,13 +267,20 @@ async function executeTurn(runtime, requestContext, turnMeta) {
 
   try {
     beginRuntimeTurn(runtime);
+
+    // Create and register turnSink after beginRuntimeTurn to avoid race
+    // (ensures executeTurn is ready to consume before perpetual reader can push)
+    runtime.turnSink = createTurnSink();
+
     console.log('[MESSAGE_START]');
     runtime.inputStream.enqueue(requestContext.userMessage);
 
     while (true) {
       let next;
       try {
-        next = await runtime.query.next();
+        // Receive message from perpetual reader via turnSink
+        // (perpetual reader owns runtime.query.next())
+        next = await runtime.turnSink.take();
       } catch (error) {
         const wrapped = new Error(error?.message || String(error));
         wrapped.runtimeTerminated = true;
@@ -299,6 +307,7 @@ async function executeTurn(runtime, requestContext, turnMeta) {
         continue;
       }
 
+      // Preserve all existing message processing logic
       if (shouldOutputMessage(msg, turnState)) {
         console.log('[MESSAGE]', JSON.stringify(msg));
       }
@@ -368,6 +377,8 @@ async function executeTurn(runtime, requestContext, turnMeta) {
     }
   } finally {
     endRuntimeTurn(runtime);
+    // Clear turnSink after endRuntimeTurn (reverse of creation order)
+    runtime.turnSink = null;
     // Only clear if this runtime still owns the pointer (not cleared by abort)
     clearActiveTurnRuntimeIf(runtime);
   }
@@ -567,7 +578,18 @@ export async function abortCurrentTurn() {
   const runtime = getActiveTurnRuntime();
   if (!runtime) return;
   console.log('[LIFECYCLE] abortCurrentTurn epoch=' + (runtime.runtimeSessionEpoch || '(none)'));
+
+  // Clear turnSink first to stop incoming messages, then fail it to unblock waiting take()
+  const sinkToClose = runtime.turnSink;
+  runtime.turnSink = null;
+
+  if (sinkToClose) {
+    sinkToClose.fail(new Error('Turn aborted'));
+  }
+
+  // Mark abort after sink is cleared
   runtime.abortRequested = true;
+
   clearActiveTurnRuntime();
 
   try {
@@ -702,6 +724,9 @@ export const __testing = {
   },
   setActiveTurnRuntime(runtime) {
     setActiveTurnRuntime(runtime);
+  },
+  getActiveTurnRuntime() {
+    return getActiveTurnRuntime();
   },
   getRuntimeForSession(sessionId) {
     return getRuntimeForSession(sessionId);

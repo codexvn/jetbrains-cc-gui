@@ -64,7 +64,9 @@ public class ClaudeChatWindow {
     private String permissionServiceKey = null;
 
     private JBCefBrowser browser;
-    private ClaudeSession session;
+    // volatile: read from the daemon reader thread by the session_updated listener
+    // and its loadFromServer continuation, while reassigned on the EDT.
+    private volatile ClaudeSession session;
     private final WebviewWatchdog webviewWatchdog;
     private final StreamMessageCoalescer streamCoalescer;
 
@@ -78,6 +80,13 @@ public class ClaudeChatWindow {
     // Daemon event listener for AI title forwarding. Held so it can be removed on dispose.
     private DaemonBridge.DaemonEventListener titleEventListener;
     private volatile int fetchedSlashCommandsCount = 0;
+
+    // Coalesces session_updated reloads. SessionState's message list is not
+    // thread-safe and loadFromServer() runs async, so concurrent background-task
+    // completions must not reload at the same time. Guarded by sessionReloadLock.
+    private final Object sessionReloadLock = new Object();
+    private boolean sessionReloadInFlight = false;
+    private boolean sessionReloadPending = false;
 
     private HandlerContext handlerContext;
     private MessageDispatcher messageDispatcher;
@@ -625,12 +634,90 @@ public class ClaudeChatWindow {
                             }
                         });
                     }
+                } else if ("session_updated".equals(event)) {
+                    // Handle inter-turn session updates (background task completion)
+                    String updatedSessionId = data.has("sessionId") ? data.get("sessionId").getAsString() : null;
+                    if (updatedSessionId == null) {
+                        LOG.warn("[ClaudeChatWindow] session_updated event missing sessionId");
+                        return;
+                    }
+
+                    // Compare with current active session
+                    String currentSessionId = session != null ? session.getSessionId() : null;
+                    if (currentSessionId == null || !currentSessionId.equals(updatedSessionId)) {
+                        // Event is for a different session, ignore
+                        return;
+                    }
+
+                    // Check if session has active turn in progress; skip reload if true
+                    if (sessionCallbackAdapter != null && streamCoalescer != null && streamCoalescer.isStreamActive()) {
+                        LOG.info("[ClaudeChatWindow] session_updated event received during active turn, skipping reload");
+                        return;
+                    }
+
+                    LOG.info("[ClaudeChatWindow] session_updated for sessionId=" + updatedSessionId + ", reloading from server");
+
+                    // Reuse the canonical reload path (same as history-load / rewind):
+                    // loadFromServer() reads the session via the bridge, converts each
+                    // record with MessageParser.parseServerMessage(), and pushes a full
+                    // refresh through the callback facade. Coalesced so overlapping
+                    // background-task completions never reload concurrently.
+                    requestSessionReload();
                 }
             };
             this.claudeSDKBridge.addDaemonEventListener(this.titleEventListener);
         }
 
         persistTabSessionState();
+    }
+
+    /**
+     * Request a reload of the current session from the server, coalescing
+     * concurrent requests. Multiple session_updated events (e.g. several
+     * background tasks finishing at once) must not run loadFromServer()
+     * concurrently — SessionState's message list is not thread-safe and the
+     * reload runs on a background thread. At most one reload is in flight;
+     * requests arriving during a reload collapse into a single follow-up reload
+     * that reflects the latest JSONL.
+     */
+    private void requestSessionReload() {
+        synchronized (sessionReloadLock) {
+            if (sessionReloadInFlight) {
+                sessionReloadPending = true;
+                return;
+            }
+            sessionReloadInFlight = true;
+        }
+        driveSessionReload();
+    }
+
+    private void driveSessionReload() {
+        ClaudeSession current = session;
+        if (disposed || current == null) {
+            synchronized (sessionReloadLock) {
+                sessionReloadInFlight = false;
+                sessionReloadPending = false;
+            }
+            return;
+        }
+        current.loadFromServer().whenComplete((v, ex) -> {
+            if (ex != null) {
+                LOG.warn("[ClaudeChatWindow] session reload failed", ex);
+            }
+            boolean runAgain;
+            synchronized (sessionReloadLock) {
+                if (sessionReloadPending && !disposed) {
+                    sessionReloadPending = false;
+                    runAgain = true;
+                } else {
+                    sessionReloadInFlight = false;
+                    runAgain = false;
+                }
+            }
+            if (runAgain) {
+                driveSessionReload();
+            }
+        });
     }
 
     private void onStreamEnded() {

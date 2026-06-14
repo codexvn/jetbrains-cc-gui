@@ -234,6 +234,13 @@ process.stdout.write = function (chunk, encoding, callback) {
   return true;
 };
 
+// Expose the pre-interception writer so out-of-band emitters can write
+// process-level NDJSON that must NOT be wrapped with activeRequestId.
+// The per-runtime perpetual reader (runtime-lifecycle.js) uses this to emit
+// inter-turn 'session_updated' events; without it those events would be
+// misrouted to whatever request happens to be active. See startPerpetualReader().
+process.stdout._originalStdoutWrite = _originalStdoutWrite;
+
 /**
  * Override console.log to go through our tagged stdout.
  */
