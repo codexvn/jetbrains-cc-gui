@@ -197,7 +197,7 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
   const settings = overrides.settings ?? loadClaudeSettings();
   const modelId = params.model || null;
   const { sdkModelName, resolvedModelId } = resolveRequestModelState(modelId, settings?.env);
-  setModelEnvironmentVariables(resolvedModelId, modelId);
+  setModelEnvironmentVariables(resolvedModelId, modelId, settings?.env);
 
   const permissionMode = normalizePermissionMode(params.permissionMode);
   const streamingEnabled = resolveStreamingEnabled(params, settings);
@@ -621,7 +621,7 @@ export async function getContextUsagePersistent(params = {}) {
       // Fast path: reuse existing runtime with minimal model sync.
       // Only map the model ID and call setModel if needed - skip full buildRequestContext
       // which would unnecessarily load MCP config, settings, etc.
-      setModelEnvironmentVariables(targetModel, modelId);
+      setModelEnvironmentVariables(targetModel, modelId, settings?.env);
     }
 
     if (typeof runtime.query?.setModel === 'function') {

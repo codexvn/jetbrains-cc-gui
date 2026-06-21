@@ -105,8 +105,38 @@ export function resolveModelFromSettings(modelId, userEnv) {
  * @param {string} [baseModelId] - The original internal model ID used to determine which env var to set.
  *                                  Required when modelId is a custom name that doesn't contain 'opus'/'haiku'/'sonnet'.
  *                                  Falls back to modelId if not provided.
+ * @param {object} [providerEnv] - The provider settings.env object. When supplied, all three
+ *                                  ANTHROPIC_DEFAULT_*_MODEL tiers are written to process.env from
+ *                                  provider config so subagents requesting a different alias (e.g.
+ *                                  Explore → haiku) still resolve to the user's mapped model.
+ *                                  Without this, only the currently-selected tier is set and the
+ *                                  other two fall back to official defaults.
  */
-export function setModelEnvironmentVariables(modelId, baseModelId) {
+export function setModelEnvironmentVariables(modelId, baseModelId, providerEnv) {
+  // Sync all three ANTHROPIC_DEFAULT_*_MODEL tiers from provider config into
+  // process.env before the modelId guard. Preconnect (tab warm-up) requests may
+  // send no model yet, but we still need the provider mapping in process.env so
+  // buildCliEnv() can forward it to the child process.
+  // Overwrite-style reset on each request prevents stale values from a previous
+  // TAB leaking across the persistent daemon; filling in non-current tiers lets
+  // subagents requesting a different alias (e.g. Explore → haiku) resolve
+  // correctly to the user's mapped model.
+  if (providerEnv && typeof providerEnv === 'object') {
+    const tierVars = [
+      'ANTHROPIC_DEFAULT_SONNET_MODEL',
+      'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+      'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    ];
+    for (const varName of tierVars) {
+      const raw = providerEnv[varName];
+      const value = raw && String(raw).trim();
+      if (value) {
+        process.env[varName] = value;
+        console.log('[MODEL_ENV] Set', varName, '=', value, '(from provider env)');
+      }
+    }
+  }
+
   if (!modelId || typeof modelId !== 'string') {
     return;
   }

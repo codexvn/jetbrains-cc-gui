@@ -461,7 +461,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
     const settings = loadClaudeSettings();
     const resolvedModel = resolveModelFromSettings(model, settings?.env);
     console.log('[DEBUG] Model:', model, '->', sdkModelName, '(API:', resolvedModel + ')');
-    setModelEnvironmentVariables(resolvedModel, model);
+    setModelEnvironmentVariables(resolvedModel, model, settings?.env);
 
     const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
 
@@ -531,7 +531,7 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     const settings = loadClaudeSettings();
     const resolvedAttachModel = resolveModelFromSettings(model, settings?.env);
     console.log('[DEBUG] (withAttachments) Model:', model, '->', resolvedAttachModel);
-    setModelEnvironmentVariables(resolvedAttachModel, model);
+    setModelEnvironmentVariables(resolvedAttachModel, model, settings?.env);
 
     const contentBlocks = await buildContentBlocks(attachments, message, resolvedAttachModel);
     const userMessage = {
