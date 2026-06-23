@@ -14,9 +14,22 @@ public class HtmlLoader {
 
     private static final Logger LOG = Logger.getInstance(HtmlLoader.class);
     private final Class<?> resourceClass;
+    private volatile String tabSessionId;
+    private volatile String tabProvider;
 
     public HtmlLoader(Class<?> resourceClass) {
         this.resourceClass = resourceClass;
+    }
+
+    /**
+     * Set the per-tab sessionId and provider for HTML injection as
+     * {@code window.__TAB_SESSION_ID__} and {@code window.__TAB_PROVIDER__}.
+     * The frontend uses the sessionId as a localStorage key prefix for
+     * multi-tab isolation.
+     */
+    public void setTabMeta(String sessionId, String provider) {
+        this.tabSessionId = sessionId;
+        this.tabProvider = provider;
     }
 
     /**
@@ -38,6 +51,9 @@ public class HtmlLoader {
 
                 // Inject the IDE theme into the HTML to prevent flash of unstyled content on initial load
                 html = injectIdeTheme(html);
+
+                // Inject per-tab sessionId and provider for localStorage tab isolation
+                html = injectTabMeta(html);
 
                 return html;
             }
@@ -92,6 +108,34 @@ public class HtmlLoader {
             LOG.error("Failed to inject IDE theme: " + e.getMessage(), e);
         }
 
+        return html;
+    }
+
+    /**
+     * Inject per-tab meta into the HTML &lt;head&gt;.
+     * The frontend uses window.__TAB_SESSION_ID__ as a localStorage key prefix
+     * for multi-tab isolation, and window.__TAB_PROVIDER__ as the initial
+     * provider value for this tab.
+     */
+    private String injectTabMeta(String html) {
+        try {
+            String sessionId = this.tabSessionId != null ? this.tabSessionId : "";
+            String provider = this.tabProvider != null ? this.tabProvider : "claude";
+
+            String scriptInjection =
+                "\n    <script>window.__TAB_SESSION_ID__ = '" + sessionId + "';</script>" +
+                "\n    <script>window.__TAB_PROVIDER__ = '" + provider + "';</script>";
+
+            int headIndex = html.indexOf("<head>");
+            if (headIndex != -1) {
+                int insertPos = headIndex + "<head>".length();
+                html = html.substring(0, insertPos) + scriptInjection + html.substring(insertPos);
+            }
+
+            LOG.info("Successfully injected tab meta: sessionId=" + sessionId + ", provider=" + provider);
+        } catch (Exception e) {
+            LOG.error("Failed to inject tab meta: " + e.getMessage(), e);
+        }
         return html;
     }
 

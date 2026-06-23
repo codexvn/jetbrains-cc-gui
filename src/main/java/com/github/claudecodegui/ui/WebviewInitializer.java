@@ -239,6 +239,12 @@ public class WebviewInitializer {
             });
 
             HtmlLoader htmlLoader = host.getHtmlLoader();
+            // Inject per-tab sessionId and provider into HTML so the frontend can
+            // use sessionId as a localStorage key prefix for multi-tab isolation.
+            com.github.claudecodegui.session.ClaudeSession session = host.getHandlerContext().getSession();
+            if (session != null) {
+                htmlLoader.setTabMeta(session.getSessionId(), session.getProvider());
+            }
             String htmlContent = htmlLoader.loadChatHtml();
 
             browser.getJBCefClient().addLoadHandler(new CefLoadHandlerAdapter() {
@@ -639,7 +645,12 @@ public class WebviewInitializer {
             }
             host.setFrontendReady(false);
             try {
-                browser.loadHTML(host.getHtmlLoader().loadChatHtml());
+                com.github.claudecodegui.session.ClaudeSession session = host.getHandlerContext().getSession();
+                HtmlLoader htmlLoader = host.getHtmlLoader();
+                if (session != null) {
+                    htmlLoader.setTabMeta(session.getSessionId(), session.getProvider());
+                }
+                browser.loadHTML(htmlLoader.loadChatHtml());
                 host.getMainPanel().revalidate();
                 host.getMainPanel().repaint();
             } catch (Exception e) {

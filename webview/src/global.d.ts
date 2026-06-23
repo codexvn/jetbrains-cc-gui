@@ -114,6 +114,33 @@ interface Window {
   setSessionId?: (sessionId: string) => void;
 
   /**
+   * Set current provider — called by backend replayCurrentSessionStateToFrontend()
+   * to tell the frontend which provider (claude/codex) this tab is using.
+   */
+  setCurrentProvider?: (provider: string) => void;
+
+  /**
+   * Per-tab session ID injected by the backend during HTML load.
+   * Used by the frontend as a localStorage key prefix for multi-tab
+   * provider/model state isolation.
+   */
+  __TAB_SESSION_ID__?: string;
+
+  /**
+   * Per-tab provider initial value injected by the backend during HTML load.
+   * Used as the default provider when localStorage has no entry for this tab
+   * (new tab or first load).
+   */
+  __TAB_PROVIDER__?: string;
+
+  /**
+   * Orphaned localStorage cleanup callback — called by the backend when a tab is
+   * removed. Receives a JSON array of active sessionIds; removes any
+   * session-*:model-selection-state keys whose sessionId prefix is not in the list.
+   */
+  cleanupOrphanedModelState?: (json: string) => void;
+
+  /**
    * Add toast notification (called from backend)
    */
   addToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;

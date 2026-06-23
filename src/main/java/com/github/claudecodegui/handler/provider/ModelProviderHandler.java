@@ -125,6 +125,15 @@ public class ModelProviderHandler {
             // Capture previous provider BEFORE mutating context so we can detect
             // the leave-claude transition that needs daemon cleanup.
             String previousProvider = context.getCurrentProvider();
+
+            // Idempotency guard: during tab restore the frontend may re-affirm the
+            // same provider from localStorage. Skip daemon shutdown, slash-command
+            // refresh, and context-bar update when the value hasn't changed.
+            if (provider != null && provider.equals(previousProvider)) {
+                LOG.info("[ModelProviderHandler] Provider unchanged (" + provider + "), skipping idempotent set_provider");
+                return;
+            }
+
             LOG.info("[ModelProviderHandler] Setting provider to: " + provider
                     + " (was: " + previousProvider + ")");
             context.setCurrentProvider(provider);

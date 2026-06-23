@@ -367,6 +367,9 @@ public class ClaudeChatWindow {
         }
         if (savedState.provider != null && !savedState.provider.trim().isEmpty()) {
             session.setProvider(savedState.provider);
+            if (handlerContext != null) {
+                handlerContext.setCurrentProvider(savedState.provider);
+            }
         }
         if (savedState.model != null && !savedState.model.trim().isEmpty()) {
             session.setModel(savedState.model);

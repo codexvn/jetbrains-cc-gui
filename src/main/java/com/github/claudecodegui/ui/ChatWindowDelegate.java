@@ -492,6 +492,11 @@ public class ChatWindowDelegate {
                 host.callJavaScript("setSessionId", JsUtils.escapeJs(sessionId));
             }
 
+            String provider = session.getProvider();
+            if (provider != null && !provider.trim().isEmpty()) {
+                host.callJavaScript("setCurrentProvider", JsUtils.escapeJs(provider));
+            }
+
             List<ClaudeSession.Message> messages = session.getMessages();
             if (!messages.isEmpty()) {
                 String messagesJson = MessageJsonConverter.convertMessagesToJson(messages);
@@ -519,6 +524,7 @@ public class ChatWindowDelegate {
 
             LOG.info("Replayed current session state to frontend: sessionId="
                     + (sessionId != null ? sessionId : "(none)")
+                    + ", provider=" + (provider != null ? provider : "(none)")
                     + ", messages=" + messages.size()
                     + ", loading=" + session.isLoading()
                     + ", streaming=" + streamActive);

@@ -195,4 +195,39 @@ export function registerSessionAndSdkCallbacks(
       reloadHistory();
     }
   };
+
+  // =========================================================================
+  // Orphaned localStorage Cleanup
+  // Called by the backend when a tab is removed.  Receives the list of
+  // remaining active sessionIds and removes any session-*:model-selection-state
+  // keys whose sessionId prefix is no longer active.
+  // =========================================================================
+
+  window.cleanupOrphanedModelState = (json: string) => {
+    const KEY_SUFFIX = ':model-selection-state';
+    try {
+      const activeIds: string[] = JSON.parse(json);
+      const activeSet = new Set(activeIds);
+      // Collect keys to remove before iterating to avoid skipping entries
+      // after deletion shifts the remaining indices.
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('session-') && key.endsWith(KEY_SUFFIX)) {
+          const sessionId = key.slice('session-'.length, -KEY_SUFFIX.length);
+          if (!activeSet.has(sessionId)) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      for (const key of keysToRemove) {
+        localStorage.removeItem(key);
+      }
+      if (keysToRemove.length > 0) {
+        console.debug('[Frontend] Cleaned up orphaned localStorage keys:', keysToRemove);
+      }
+    } catch (e) {
+      console.error('[Frontend] Failed to cleanup orphaned model state:', e);
+    }
+  };
 }
