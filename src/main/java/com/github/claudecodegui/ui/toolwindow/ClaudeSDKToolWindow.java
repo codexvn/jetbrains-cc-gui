@@ -333,6 +333,30 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
                         + removedContent.getDisplayName());
                     window.dispose();
                 }
+
+                // Clean up orphaned localStorage keys for the removed tab.
+                // Collect sessionIds of remaining tabs from contentManager (the removed
+                // Content is already gone at this point) and ask one surviving frontend
+                // to remove session-*:model-selection-state keys that no longer belong.
+                java.util.List<String> activeSessionIds = new java.util.ArrayList<>();
+                for (Content c : contentManager.getContents()) {
+                    if (c == removedContent || isContentDetaching(c)) continue;
+                    ClaudeChatWindow w = getChatWindowForContent(c);
+                    if (w != null && !w.isDisposed() && w.getSessionId() != null) {
+                        activeSessionIds.add(w.getSessionId());
+                    }
+                }
+                if (!activeSessionIds.isEmpty()) {
+                    String json = new com.google.gson.Gson().toJson(activeSessionIds);
+                    for (Content c : contentManager.getContents()) {
+                        if (isContentDetaching(c)) continue;
+                        ClaudeChatWindow w = getChatWindowForContent(c);
+                        if (w != null && !w.isDisposed()) {
+                            w.callJavaScript("cleanupOrphanedModelState", json);
+                            break;
+                        }
+                    }
+                }
             }
 
             @Override

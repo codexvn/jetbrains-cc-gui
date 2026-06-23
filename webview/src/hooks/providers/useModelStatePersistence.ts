@@ -10,7 +10,12 @@ import {
 } from '../../components/ChatInputBox/types';
 import type { CodexFastMode, PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
 
-const STORAGE_KEY = 'model-selection-state';
+// Use per-tab sessionId as a localStorage key prefix for multi-tab isolation.
+// sessionId is injected by the backend during HTML load as window.__TAB_SESSION_ID__.
+const TAB_ID = typeof window !== 'undefined' ? window.__TAB_SESSION_ID__ : undefined;
+const STORAGE_KEY = TAB_ID
+  ? `session-${TAB_ID}:model-selection-state`
+  : 'model-selection-state';
 const REASONING_VALUES = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 const CODEX_FAST_MODE_VALUES = ['normal', 'fast'] as const;
 
@@ -88,7 +93,9 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      let restoredProvider = 'claude';
+      // Prefer the backend-injected provider, fall back to claude
+      let restoredProvider = (typeof window !== 'undefined' && window.__TAB_PROVIDER__)
+        ? window.__TAB_PROVIDER__ : 'claude';
       let restoredClaudeModel = CLAUDE_MODELS[0].id;
       let restoredCodexModel = CODEX_MODELS[0].id;
       let restoredClaudePermissionMode: PermissionMode = 'bypassPermissions';
@@ -101,7 +108,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
 
         if (['claude', 'codex'].includes(state.provider)) {
           restoredProvider = state.provider;
-          setCurrentProvider(state.provider);
         }
 
         if (isValidPermissionMode(state.claudePermissionMode)) {
@@ -146,6 +152,8 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
           setSelectedCodexModel(state.codexModel);
         }
       }
+
+      setCurrentProvider(restoredProvider);
 
       const initialPermissionMode: PermissionMode = restoredProvider === 'codex'
         ? restoredCodexPermissionMode
