@@ -97,6 +97,13 @@ export async function sendMessage(
 
     const codexOptions = {};
 
+    // Always initialize config with reasoning summaries forced to true
+    // so custom models not in the SDK's known-reasoning-model allowlist
+    // still get thinking/reasoning parameters in API requests.
+    codexOptions.config = {
+      model_supports_reasoning_summaries: true
+    };
+
     if (baseUrl) {
       codexOptions.baseUrl = baseUrl;
     }
@@ -106,6 +113,7 @@ export async function sendMessage(
     if (serviceTier && serviceTier.trim() !== '') {
       const sdkServiceTier = serviceTier.trim();
       codexOptions.config = {
+        ...codexOptions.config,
         features: {
           fast_mode: true
         },
