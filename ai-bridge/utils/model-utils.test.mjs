@@ -157,6 +157,117 @@ test('setModelEnvironmentVariables routes haiku base to haiku env', () => {
   }
 });
 
+// --- setModelEnvironmentVariables provider tier sync ------------------------
+// Provider env maps the three tiers to their base model names (no [1m] suffix).
+// The current tier is subsequently overwritten by modelId, which carries the
+// correct [1m] state from the request via resolveModelFromSettings.
+// Non-current tiers receive the raw provider value so subagents (e.g. Explore
+// switching to haiku) resolve to the user's mapped model without any [1m].
+test('setModelEnvironmentVariables with providerEnv writes all three tiers from provider config', () => {
+  const previous = {
+    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: process.env.ANTHROPIC_DEFAULT_SONNET_MODEL,
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: process.env.ANTHROPIC_DEFAULT_OPUS_MODEL,
+  };
+  try {
+    delete process.env.ANTHROPIC_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+
+    const providerEnv = {
+      ANTHROPIC_DEFAULT_SONNET_MODEL: 'custom-sonnet',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'custom-haiku',
+      ANTHROPIC_DEFAULT_OPUS_MODEL: 'custom-opus',
+    };
+
+    setModelEnvironmentVariables('custom-sonnet[1m]', 'claude-sonnet-4-6[1m]', providerEnv);
+
+    // Non-current tiers: raw provider value, no [1m].
+    assert.equal(process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL, 'custom-haiku');
+    assert.equal(process.env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'custom-opus');
+    // Current tier (sonnet): overwritten by modelId with [1m] carried through.
+    assert.equal(process.env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'custom-sonnet[1m]');
+    assert.equal(process.env.ANTHROPIC_MODEL, 'custom-sonnet[1m]');
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+// Stale [1m] in provider config must be stripped from non-current tiers.
+// Otherwise a misconfigured provider value like 'claude-haiku-4-5[1m]'
+// would force 1M context on subagents (e.g. Explore → haiku), breaking
+// the webview toggle.
+test('setModelEnvironmentVariables with providerEnv strips [1m] from non-current tiers', () => {
+  const previous = {
+    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: process.env.ANTHROPIC_DEFAULT_SONNET_MODEL,
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: process.env.ANTHROPIC_DEFAULT_OPUS_MODEL,
+  };
+  try {
+    delete process.env.ANTHROPIC_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+
+    // Simulate stale [1m] in provider config
+    const providerEnv = {
+      ANTHROPIC_DEFAULT_SONNET_MODEL: 'custom-sonnet[1m]',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'custom-haiku[1m]',
+      ANTHROPIC_DEFAULT_OPUS_MODEL: 'custom-opus[1m]',
+    };
+
+    // ModelId from resolveModelFromSettings carries request's [1m] intent (disabled here)
+    setModelEnvironmentVariables('custom-sonnet', 'claude-sonnet-4-6', providerEnv);
+
+    // Non-current tiers: [1m] stripped, no suffix
+    assert.equal(process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL, 'custom-haiku');
+    assert.equal(process.env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'custom-opus');
+    // Current tier (sonnet): overwritten by modelId, no [1m]
+    assert.equal(process.env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'custom-sonnet');
+    assert.equal(process.env.ANTHROPIC_MODEL, 'custom-sonnet');
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+// When called without providerEnv (backward-compatible path), only the
+// currently-selected tier is written to process.env — no normalization needed
+// because modelId already carries the caller's [1m] intent.
+test('setModelEnvironmentVariables without providerEnv only sets current tier', () => {
+  const previous = {
+    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: process.env.ANTHROPIC_DEFAULT_SONNET_MODEL,
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: process.env.ANTHROPIC_DEFAULT_OPUS_MODEL,
+  };
+  try {
+    delete process.env.ANTHROPIC_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+
+    setModelEnvironmentVariables('glm-4.7[1m]', 'claude-sonnet-4-6[1m]');
+
+    assert.equal(process.env.ANTHROPIC_MODEL, 'glm-4.7[1m]');
+    assert.equal(process.env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'glm-4.7[1m]');
+    assert.equal(process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL, undefined);
+    assert.equal(process.env.ANTHROPIC_DEFAULT_OPUS_MODEL, undefined);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
 // --- modelSupportsVision -------------------------------------------------
 
 test('modelSupportsVision only matches the canonical claude- prefix', () => {

@@ -4,6 +4,20 @@
  */
 
 /**
+ * Apply or strip the `[1m]` suffix on a mapped model name according to the
+ * current webview request state. Shared between `resolveModelFromSettings` and
+ * `setModelEnvironmentVariables` so the same 1M cleanup rules are applied to
+ * both the per-model lookup and the provider tier bulk sync.
+ * @param {string} raw - The mapped model name (may or may not have `[1m]`)
+ * @param {boolean} requestHas1M - Whether the current webview request has the `[1m]` suffix
+ * @returns {string} The mapped model name with `[1m]` normalized according to request state
+ */
+function apply1mSuffix(raw, requestHas1M) {
+  const base = String(raw).trim().replace(/\[1m\]$/i, '');
+  return requestHas1M ? `${base}[1m]` : base;
+}
+
+/**
  * Map a full model ID to the short name expected by the Claude SDK.
  * @param {string} modelId - Full model ID (e.g. 'claude-sonnet-4-5')
  * @returns {string} SDK model name (e.g. 'sonnet')
@@ -55,10 +69,7 @@ export function resolveModelFromSettings(modelId, userEnv) {
   const requestHas1M = /\[1m\]$/i.test(modelId);
   // The request owns 1M state. Settings mappings may provide the provider's base
   // model ID, but they must not force the context-window suffix.
-  const applySuffix = (mapped) => {
-    const base = String(mapped).trim().replace(/\[1m\]$/i, '');
-    return requestHas1M ? `${base}[1m]` : base;
-  };
+  const applySuffix = (mapped) => apply1mSuffix(mapped, requestHas1M);
 
   // ANTHROPIC_MODEL is a global override that applies to all model types
   if (userEnv.ANTHROPIC_MODEL && String(userEnv.ANTHROPIC_MODEL).trim()) {
@@ -127,12 +138,18 @@ export function setModelEnvironmentVariables(modelId, baseModelId, providerEnv) 
       'ANTHROPIC_DEFAULT_HAIKU_MODEL',
       'ANTHROPIC_DEFAULT_OPUS_MODEL',
     ];
+    // Strip [1m] from all provider tier values — the suffix is a runtime
+    // toggle controlled by the webview, not by provider config. If a stale
+    // [1m] leaks into a non-current tier, subagents (e.g. Explore → haiku)
+    // would see the wrong model name with [1m] forced on, breaking the 1M
+    // context toggle. Only the current tier (overwritten below with modelId
+    // from resolveModelFromSettings) may carry [1m] when the request enables it.
     for (const varName of tierVars) {
       const raw = providerEnv[varName];
-      const value = raw && String(raw).trim();
-      if (value) {
-        process.env[varName] = value;
-        console.log('[MODEL_ENV] Set', varName, '=', value, '(from provider env)');
+      const base = raw && String(raw).trim();
+      if (base) {
+        process.env[varName] = apply1mSuffix(base, false);
+        console.log('[MODEL_ENV] Set', varName, '=', base, '(from provider env)');
       }
     }
   }
